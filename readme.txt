@@ -6,7 +6,7 @@ Author URI: http://wpmedic.tech
 Plugin URI: http://wpmedic.tech/guten-free-options/
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
-Requires PHP: 5.0.0
+Requires PHP: 5.2.4
 Requires at least: 4.9.0
 Tested up to: 5.0.0
 Stable tag: trunk
@@ -62,6 +62,11 @@ Multisite Usage
 == Upgrade Notice ==
 
 == Changelog ==
+
+= 0.9.1 =
+* fix to add submenu link for Block Editor in Classic mode
+* fix for Gutenberg plugin as no is_block_editor() method exists
+* add settings links to plugins and network plugins pages
 
 = 0.9.0 =
 * beta Working Public Test Version
