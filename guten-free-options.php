@@ -1,15 +1,13 @@
 <?php
-
 /*
 Plugin Name: Guten Free Options
 Plugin URI: http://wpmedic.tech/guten-free-options/
 Author: Tony Hayes
 Description: Gutenberg Free Options for your WordPressed Burger err I mean Editor
-Version: 0.9.0
+Version: 0.9.1
 Author URI: http://wpmedic.tech
 GitHub Plugin URI: majick777/guten-free-options
 */
-
 
 // ============
 // PLUGIN SETUP
@@ -19,7 +17,8 @@ GitHub Plugin URI: majick777/guten-free-options
 // Set Plugin Values
 // -----------------
 global $wordquestplugins, $gutenfree; $gutenfree = array();
-$slug = $gutenfree['slug'] = 'guten-free-burger';
+$slug = $gutenfree['slug'] = 'guten-free-options';
+$gutenfree['network-slug'] = 'guten-free-network-options';
 $wordquestplugins[$slug]['version'] = $gutenfree['version'] = '0.9.0';
 $wordquestplugins[$slug]['title'] = $gutenfree['title'] = 'Guten Free Options';
 $wordquestplugins[$slug]['namespace'] = $gutenfree['namespace'] = 'gfo';
@@ -50,13 +49,14 @@ if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
 // --------------
 add_action('admin_menu', 'gfo_add_admin_page');
 function gfo_add_admin_page() {
+	global $gutenfree;
 	// to allow programmatic locking of plugin settings page
 	$lock_settings = apply_filters('gfo_lock_settings', get_option('gfo_lock_settings'));
 	if ($lock_settings) {return;}
 	$page_title = apply_filters('gfo_settings_page_title', __('Guten Free Options','guten-free-options'));
 	$menu_title = apply_filters('gfo_settings_menu_title', __('Guten Free','guten-free-options'));
 	$capability = apply_filters('gfo_manage_options_capability', 'manage_options');
-	add_options_page($page_title, $menu_title, $capability, 'guten-free-options', 'gfo_settings_page');
+	add_options_page($page_title, $menu_title, $capability, $gutenfree['slug'], 'gfo_settings_page');
 }
 
 // ----------------------
@@ -64,6 +64,7 @@ function gfo_add_admin_page() {
 // ----------------------
 add_action('network_admin_menu', 'gfo_add_network_page');
 function gfo_add_network_page() {
+	global $gutenfree;
 	// to allow programmatic locking of network settings page
 	$lock_settings = apply_filters('gfo_lock_network_settings', get_option('gfo_lock_network_settings'));
 	if ($lock_settings) {return;}
@@ -75,8 +76,40 @@ function gfo_add_network_page() {
 		$page_title = apply_filters('gfo_network_page_title', __('Guten Free Network Options','guten-free-options'));
 		$menu_title = apply_filters('gfo_network_menu_title', __('Guten Free','guten-free-options'));
 		$capability = apply_filters('gfo_manage_network_options_capability', 'manage_network_options');
-		add_submenu_page('settings.php', $page_title, $menu_title, $capability, 'guten-free-network-options', 'gfo_network_settings_page');
+		add_submenu_page('settings.php', $page_title, $menu_title, $capability, $gutenfree['network-slug'], 'gfo_network_settings_page');
 	}
+}
+
+// -----------------------------
+// Add Plugin Page Settings Link
+// -----------------------------
+// 0.9.1: added plugin page settings link
+add_filter('plugin_action_links', 'gfo_plugin_action_links', 10, 2);
+function gfo_plugin_action_links($links, $file) {
+	global $gutenfree;
+	if ($file == plugin_basename(__FILE__)) {
+		$settings_url = add_query_arg('page', $gutenfree['slug'], admin_url('admin.php'));
+		$settings_link = "<a href='".$settings_url."'>".__('Settings','guten-free-options')."</a>";
+		$newlink['settings'] = $settings_link;
+		$links = array_merge($newlink, $links);
+	}
+	return $links;
+}
+
+// -------------------------------------
+// Add Network Plugin Page Settings Link
+// -------------------------------------
+// 0.9.1: added network plugin page settings link
+add_filter('network_admin_plugin_action_links', 'gfo_network_plugin_action_links', 10, 4);
+function gfo_network_plugin_action_links($links, $file, $plugin_data, $context) {
+	global $gutenfree;
+	if ($file == plugin_basename(__FILE__)) {
+	 	$settings_url = add_query_arg('page', $gutenfree['network-slug'], network_admin_url('settings.php'));
+	 	$settings_link = "<a href='".$settings_url."'>".__('Network Settings','guten-free-options')."</a>";
+	 	$newlink['settings'] = $settings_link;
+	 	$links = array_merge($newlink, $links);
+	}
+	return $links;
 }
 
 
@@ -87,8 +120,8 @@ function gfo_add_network_page() {
 // -------------------
 // Get Plugin Settings
 // -------------------
-$options = get_option('guten_free_options');
-if ($options && is_array($options)) {$gutenfree = array_merge($gutenfree, $options);}
+$plugin_options = get_option('guten_free_options');
+if ($plugin_options && is_array($plugin_options)) {$gutenfree = array_merge($gutenfree, $plugin_options);}
 
 // ----------------------------
 // Check Debug Switch Overrides
@@ -162,8 +195,8 @@ function gfo_get_setting($key, $filter=true) {
 // Add Plugin Settings
 // -------------------
 // register_activation_hook(__FILE__, 'gfo_add_settings');
-$file = plugin_basename(__FILE__);
-add_action('activate_'.$file, 'gfo_add_settings', 10, 1);
+$plugin_file = plugin_basename(__FILE__);
+add_action('activate_'.$plugin_file, 'gfo_add_settings', 10, 1);
 function gfo_add_settings($network_wide) {
 	global $gutenfree; $gutenfree = gfo_get_defaults();
 	add_option('guten_free_options', $gutenfree);
@@ -449,8 +482,9 @@ function gfo_settings_page() {
 	echo __('(Similar to how cascading stylesheet rules work for styling page elements.)','guten-free-options')."<br><br>";
 
 	// shorthand settings note
-	echo "<i>".__('Classic','guten-free-options')."</i> = <i>".__('Classic TinyMCE Editor','guten-free-options')."</i> | ";
-	echo "<i>".__('Block','guten-free-options')."</i> = <i>".__('Gutenberg Block Editor','guten-free-options')."</i><br>";
+	echo "<table><tr><td><i>".__('Classic','guten-free-options')."</i> = <i>".__('Classic TinyMCE Editor','guten-free-options')."</i></td>";
+	echo "<td width='10'></td><td> | </td><td width='10'></td>";
+	echo "<td><i>".__('Block','guten-free-options')."</i> = <i>".__('Gutenberg Block Editor','guten-free-options')."</i></td></tr></table>";
 
 	// open settings form
 	echo "<form id='gfo-settings-form' method='post'>";
@@ -863,6 +897,16 @@ function gfo_cooker() {
 
 	global $gutenfree;
 
+	// 0.9.1: add post type filter after plugins_loaded to allow priority filtering
+	$filter_priority = apply_filters('gfo_post_type_filter_priority', 11);
+	add_filter('gutenberg_can_edit_post_type', 'gfo_can_edit_post_type', $filter_priority, 2);
+	add_filter('use_block_editor_for_post_type', 'gfo_can_edit_post_type', $filter_priority, 2);
+
+	// 0.9.1: add single post filter after plugins_loaded to allow priority filtering
+	$filter_priority = apply_filters('gfo_single_post_filter_priority', 11);
+	add_filter('use_block_editor_for_post', 'gfo_can_edit_post', $filter_priority, 2);
+	add_filter('gutenberg_can_edit_post', 'gfo_can_edit_post', $filter_priority, 2);
+
 	// remove the Classic Editor plugin init action (override it to prevent conflicts!)
 	// ...and also remove its Settings link to the settings from the plugins screen
 	if (function_exists('classic_editor_init_actions')) {
@@ -870,7 +914,7 @@ function gfo_cooker() {
 		remove_filter('plugin_action_links', 'classic_editor_add_settings_link');
 		remove_action('admin_init', 'classic_editor_admin_init');
 	}
-	// TODO: check for other Gutenberg disabler pls and print admin notice if found ?
+	// TODO: check for other Gutenberg disabler plugins and print admin notice if found ?
 
 	// maybe add user default editor selection field
 	if (gfo_get_setting('user_default') == 'yes') {
@@ -909,7 +953,8 @@ function gfo_cooker() {
 	// maybe remove gutenberg menu (plugin only)
 	if ($will_load == 'plugin') {
 		$remove_menu = gfo_get_setting('remove_menu');
-		if ($remove_menu && has_action('admin_menu', 'gutenberg_menu')) {
+		// 0.9.1: check for exact value of remove_menu
+		if ( ($remove_menu == 'yes') && has_action('admin_menu', 'gutenberg_menu') ) {
 			remove_action('admin_menu', 'gutenberg_menu');
 		}
 	}
@@ -929,7 +974,7 @@ function gfo_cooker() {
 
 		// unload gutenberg (if possible!)
 		gfo_force_gutenberg_unload($will_load);
-		return;
+		$load = false;
 
 	} elseif ($check_load && !$will_load) {
 
@@ -939,7 +984,6 @@ function gfo_cooker() {
 	}
 
 	// gutenberg or block editor is loaded
-	// TODO: admin and edit links for different contexts
 	if (!isset($load) || (isset($load) && $load) ) {
 
 		// add Classic Editor Admin menu links
@@ -954,6 +998,11 @@ function gfo_cooker() {
 		// note: 'page' here actually means any hierarchical post type
 		// add_filter('page_row_actions', 'gfo_add_edit_links', 15, 2);
 		// add_filter('post_row_actions', 'gfo_add_edit_links', 15, 2);
+
+	} else {
+
+		// 0.9.1: add Block Editor Admin menu links
+		add_action( 'admin_menu', 'gfo_block_editor_submenus' );
 
 	}
 
@@ -1068,9 +1117,6 @@ function gfo_get_post_type($post_id) {
 // ----------------------------
 // Check Can Edit For Post Type
 // ----------------------------
-$priority = apply_filters('gfo_post_type_filter_priority', 11);
-add_filter('gutenberg_can_edit_post_type', 'gfo_can_edit_post_type', $priority, 2);
-add_filter('use_block_editor_for_post_type', 'gfo_can_edit_post_type', $priority, 2);
 function gfo_can_edit_post_type($can_edit, $post_type) {
 
 	global $gutenfree; $edit = $can_edit;
@@ -1220,9 +1266,6 @@ function gfo_check_post_type($can_edit, $post_type, $user=null) {
 // --------------------------
 // Check Can Edit for Post ID
 // --------------------------
-$priority = apply_filters('gfo_single_post_filter_priority', 11);
-add_filter('use_block_editor_for_post', 'gfo_can_edit_post', $priority, 2);
-add_filter('gutenberg_can_edit_post', 'gfo_can_edit_post', $priority, 2);
 function gfo_can_edit_post($can_edit, $post) {
 
 	global $gutenfree;
@@ -1369,7 +1412,8 @@ function gfo_force_gutenberg_load() {
 	if (validate_file($gutenberg_filepath) !== 0) {return false;}
 
 	if (file_exists($gutenberg_filepath)) {
-		$gutenfree['gutenberg'] = 'load';
+		// 0.9.1: set gutenberg plugin loaded flag
+		$gutenfree['gutenberg_plugin'] = true;
 		include_once(gutenberg_filepath);
 		do_action('gfo_after_gutenberg_load');
 		return true;
@@ -1518,10 +1562,13 @@ function gfo_gutenberg_button() {
 add_action('admin_footer', 'gfo_classic_button');
 function gfo_classic_button() {
 	global $gutenfree, $post, $current_screen;
+
+	// 0.9.1: use block editor checking function to prevent Gutenberg plugin crashing
+	if (!gfo_is_block_editor_page()) {return;}
+
 	$switch_button = gfo_get_setting('switch_buttons');
 	$switch_button = apply_filters('gfo_add_classic_button', $switch_button);
 	if (!$switch_button) {return;}
-	if (!$current_screen->is_block_editor()) {return;}
 
 	// javascript confirmation onclick if content has existing blocks
 	if (!isset($gutenfree['hasblocks']) || !$gutenfree['hasblocks']) {$onclick = 'onclick="gfo_switch_editor();"';}
@@ -1530,7 +1577,8 @@ function gfo_classic_button() {
 
 	// create edit URL and Classic Button
 	$edit_url = get_edit_post_link($post->ID, 'url');
-	$edit_url = add_query_arg('classic-editor', '', $edit_url);
+	// 0.9.1: fix to updated editor querystring arg
+	$edit_url = add_query_arg('editor', 'classic', $edit_url);
 	$button = array(
 		'class'		=> 'components-button editor-post-switch-to-classic is-button is-default is-large',
 		'id'		=> 'classic-editor-button',
@@ -1545,15 +1593,18 @@ function gfo_classic_button() {
 
 	// add the switch editor button to the editor page
 	// note: using setInterval cycling above to ensure DOM is ready for appending!
+	// 0.9.1: add extra check for .edit-post-header__settings element just in case
 	echo "<script>var editor_switch_confirm_message = '".$button['confirm']."';
 	function gfo_switch_confirm() {var agree = confirm(editor_switch_confirm_message); if (!agree) {return false;} gfo_switch_editor();}
 	function gfo_switch_editor() {window.location.href = '".$edit_url."';}
 	var add_classic_button; var classic_button = jQuery('".$button_html."');
 	jQuery(document).ready(function($) {
-		add_classic_button = setInterval(function() {
-			jQuery('.edit-post-header__settings').append(classic_button);
-			if (jQuery('#".$button['id']."')) {clearInterval(add_classic_button);}
-		}, 500);
+		if (jQuery('.edit-post-header__settings')) {
+			add_classic_button = setInterval(function() {
+				jQuery('.edit-post-header__settings').append(classic_button);
+				if (jQuery('#".$button['id']."')) {clearInterval(add_classic_button);}
+			}, 500);
+		}
 	});</script>";
 }
 
@@ -1638,11 +1689,17 @@ function gfo_classic_editor_replace($return) {
 // ADMIN
 // =====
 
-// ----------------------------
-// Classic Editor Submenu Links
-// ----------------------------
+// ----------------------
+// Editor Submenu Actions
+// ----------------------
+function gfo_classic_editor_submenus() {gfo_add_editor_submenus('classic');}
+function gfo_block_editor_submenus() {gfo_add_editor_submenus('block');}
+
+// --------------------------
+// Add Submenu Links Abstract
+// --------------------------
 // (via Classic Editor plugin)
-function gfo_classic_editor_submenus() {
+function gfo_add_editor_submenus($editor) {
 
 	foreach ( get_post_types( array( 'show_ui' => true ) ) as $type ) {
 
@@ -1665,9 +1722,13 @@ function gfo_classic_editor_submenus() {
 			$parent_slug = $type_obj->show_in_menu;
 		}
 
-		$item_name = $type_obj->labels->add_new . ' ' . __( '(Classic)', 'guten-free-options' );
+		$item_name = $type_obj->labels->add_new . ' ';
 
-		add_submenu_page( $parent_slug, $type_obj->labels->add_new, $item_name, $type_obj->cap->edit_posts, "post-new.php?post_type={$type}&editor=classic" );
+		if ($editor == 'classic') {$item_name .= __( '(Classic)', 'guten-free-options' );}
+		if ($editor == 'block') {$item_name .= __( '(Block)', 'guten-free-options' );}
+
+		$add_new_url = "post-new.php?post_type=" . $type . "&editor=" .$editor;
+		add_submenu_page( $parent_slug, $type_obj->labels->add_new, $item_name, $type_obj->cap->edit_posts, $add_new_url );
 	}
 }
 
@@ -1890,45 +1951,45 @@ function gfo_editor_override_metabox() {
 	$styles = apply_filters('gfo_editor_override_metabox_styles', $styles);
 	if ($styles != '') {echo "<style>".$styles."</style>";}
 
-	// metabox save refresh trigger for block editor to classic editor (the super super crazy fix.)
-	global $current_screen;
-	if ($current_screen->is_block_editor()) {
-		$confirm_message = __('Editor Override Saved. Refresh the page to Classic Editor now?','guten-free-options');
-		$norefresh_message = __('Okay. It is recommended you refresh the page or remove the editor override.','guten-free-options');
-		$script = "var classic_reload_check = false; var publish_button_click = false;
-		jQuery(document).ready(function($) {
-			add_publish_button_click = setInterval(function() {
-				\$publish_button = jQuery('.edit-post-header__settings .editor-post-publish-button');
-				if (\$publish_button && !publish_button_click) {
-					publish_button_click = true;
-					\$publish_button.on('click', function() {
-						var classic_reloader = setInterval(function() {
-							if (classic_reload_check) {return;} else {classic_reload_check = true;}
-							postsaving = wp.data.select('core/editor').isSavingPost();
-							autosaving = wp.data.select('core/editor').isAutosavingPost();
-							success = wp.data.select('core/editor').didPostSaveRequestSucceed();
-							/* console.log('Saving: '+postsaving+' - Autosaving: '+autosaving+' - Success: '+success); */
-							if (postsaving || autosaving || !success) {classic_reload_check = false; return;}
-							clearInterval(classic_reloader);
+	// the next part is for block editor pages only
+	if (!gfo_is_block_editor_page()) {return;}
 
-							select = document.getElementById('editor_override');
-							value = select.options[select.selectedIndex].value;
-							if (value == 'classic') {
-								if (confirm('".$confirm_message."')) {
-									currenthref = window.location.href.replace('&classic-editor', '');
-									if (currenthref.indexOf('&editor=block') > -1) {
-										window.location.href = currenthref.replace('&editor=block', '&editor=classic');
-									} else {window.location.href = currenthref+'&editor=classic';}
-								} else {alert('".$norefresh_message."');}
-							}
-						}, 1000);
-					});
-				}
-			}, 500);
-		});";
-		$script = apply_filters('gfo_editor_override_metabox_script', $script);
-		if ($script != '') {echo "<script>".$script."</script>";}
-	}
+	// metabox save refresh trigger for block editor to classic editor (the super super crazy fix.)
+	$confirm_message = __('Editor Override Saved. Refresh the page to Classic Editor now?','guten-free-options');
+	$norefresh_message = __('Okay. It is recommended you refresh the page or remove the editor override.','guten-free-options');
+	$script = "var classic_reload_check = false; var publish_button_click = false;
+	jQuery(document).ready(function($) {
+		add_publish_button_click = setInterval(function() {
+			\$publish_button = jQuery('.edit-post-header__settings .editor-post-publish-button');
+			if (\$publish_button && !publish_button_click) {
+				publish_button_click = true;
+				\$publish_button.on('click', function() {
+					var classic_reloader = setInterval(function() {
+						if (classic_reload_check) {return;} else {classic_reload_check = true;}
+						postsaving = wp.data.select('core/editor').isSavingPost();
+						autosaving = wp.data.select('core/editor').isAutosavingPost();
+						success = wp.data.select('core/editor').didPostSaveRequestSucceed();
+						/* console.log('Saving: '+postsaving+' - Autosaving: '+autosaving+' - Success: '+success); */
+						if (postsaving || autosaving || !success) {classic_reload_check = false; return;}
+						clearInterval(classic_reloader);
+
+						select = document.getElementById('editor_override');
+						value = select.options[select.selectedIndex].value;
+						if (value == 'classic') {
+							if (confirm('".$confirm_message."')) {
+								currenthref = window.location.href.replace('&classic-editor', '');
+								if (currenthref.indexOf('&editor=block') > -1) {
+									window.location.href = currenthref.replace('&editor=block', '&editor=classic');
+								} else {window.location.href = currenthref+'&editor=classic';}
+							} else {alert('".$norefresh_message."');}
+						}
+					}, 1000);
+				});
+			}
+		}, 500);
+	});";
+	$script = apply_filters('gfo_editor_override_metabox_script', $script);
+	if ($script != '') {echo "<script>".$script."</script>";}
 }
 
 // -----------------------------
@@ -1992,7 +2053,6 @@ function gfo_remember_when_saving_posts() {
 // Classic Editor Arg for Revisions
 // --------------------------------
 function gfo_get_edit_post_link($url) {
-	global $gutenfree;
 	if (isset($_REQUEST['classic-editor'])) {
 		$url = add_query_arg('classic-editor', $_REQUEST['classic-editor'], $url);
 	} elseif (isset($_REQUEST['editor'])) {
@@ -2005,7 +2065,6 @@ function gfo_get_edit_post_link($url) {
 // Maintain Querystring through Redirects
 // --------------------------------------
 function gfo_redirect_location($location) {
-	global $gutenfree;
 	if (isset($_POST['_wp_http_referer']) && strpos($_POST['_wp_http_referer'], '&classic-editor') !== false) {
 		$location = add_query_arg('classic-editor', '', $location);
 	}
@@ -2068,13 +2127,17 @@ function gfo_get_post_content_only($post_id) {
 // Check if Gutenberg Plugin is Active
 // -----------------------------------
 function gfo_is_gutenberg_plugin_active() {
+	// 0.9.1: store active state for faster rechecking
+	global $gutenfree; $active = false;
+	if (isset($gutenfree['gutenberg_plugin']) && $gutenfree['gutenberg_plugin']) {return true;}
 	$active_plugins = (array)get_option('active_plugins');
-	if (in_array('gutenberg/gutenberg.php', $active_plugins)) {return true;}
+	if (in_array('gutenberg/gutenberg.php', $active_plugins)) {$active = true;}
 	if (is_multisite()) {
 		$sitewide_plugins = (array)get_site_option('active_sitewide_plugins');
-		if (array_key_exists('gutenberg/gutenberg.php', $sitewide_plugins)) {return true;}
+		if (array_key_exists('gutenberg/gutenberg.php', $sitewide_plugins)) {$active = true;}
 	}
-	return false;
+	$gutenfree['gutenberg_plugin'] = true;
+	return $active;
 }
 
 // -----------------------------
@@ -2088,6 +2151,27 @@ function gfo_is_editor_admin_url($supported_filenames = array('post.php', 'post-
 	foreach ($supported_filenames as $filename) {
 		// require $filename not to be empty to avoid accidents like matching against a plain `/wp-admin/`
 		if (!empty($filename) && ("/".$wp_admin_slug."/".$filename === $path)) {return true;}
+	}
+	return false;
+}
+
+// ---------------------------
+// Check for Block Editor Page
+// ---------------------------
+// 0.9.1: added check to help prevent Gutenberg plugin crashing without is_block_editor method
+function gfo_is_block_editor_page() {
+	global $current_screen;
+	$current_screen = get_current_screen();
+	if (method_exists($current_screen, 'is_block_editor') && $current_screen->is_block_editor()) {return true;}
+	elseif (gfo_is_gutenberg_plugin_active()) {
+		// do similar to is_gutenberg_page function here
+		if (!is_admin()) {return false;}
+		if ($current_screen->base !== 'post') {return false;}
+		if (!gfo_is_editor_admin_url()) {return false;}
+		global $post;
+		$can_edit = apply_filters('gutenberg_can_edit_post_type', true, $post->post_type);
+		$can_edit = apply_filters('gutenberg_can_edit_post', $can_edit, $post);
+		return $can_edit;
 	}
 	return false;
 }
