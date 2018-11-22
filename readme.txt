@@ -63,6 +63,9 @@ Multisite Usage
 
 == Changelog ==
 
+= 0.9.2 =
+* hotfix for post_id in gfo_get_post_content_only function
+
 = 0.9.1 =
 * fix to add submenu link for Block Editor in Classic mode
 * fix for Gutenberg plugin as no is_block_editor() method exists
