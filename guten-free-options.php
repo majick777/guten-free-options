@@ -4,7 +4,7 @@ Plugin Name: Guten Free Options
 Plugin URI: http://wpmedic.tech/guten-free-options/
 Author: Tony Hayes
 Description: Gutenberg Free Options for your WordPressed Burger err I mean Editor
-Version: 0.9.1
+Version: 0.9.2
 Author URI: http://wpmedic.tech
 GitHub Plugin URI: majick777/guten-free-options
 */
@@ -19,7 +19,7 @@ GitHub Plugin URI: majick777/guten-free-options
 global $wordquestplugins, $gutenfree; $gutenfree = array();
 $slug = $gutenfree['slug'] = 'guten-free-options';
 $gutenfree['network-slug'] = 'guten-free-network-options';
-$wordquestplugins[$slug]['version'] = $gutenfree['version'] = '0.9.0';
+$wordquestplugins[$slug]['version'] = $gutenfree['version'] = '0.9.2';
 $wordquestplugins[$slug]['title'] = $gutenfree['title'] = 'Guten Free Options';
 $wordquestplugins[$slug]['namespace'] = $gutenfree['namespace'] = 'gfo';
 $wordquestplugins[$slug]['settings'] = $gutenfree['settings'] = 'gfo';
@@ -1309,6 +1309,8 @@ function gfo_check_for_blocks($can_edit, $post_id) {
 	global $gutenfree;
 	$check_blocks = gfo_get_setting('check_blocks');
 	$content = gfo_get_post_content_only($post_id);
+	// 0.9.2: bug out if could not get content
+	if (!$content) {return $can_edit;}
 	$hasblocks = gfo_has_blocks($post->content);
 	if ($hasblocks) {
 		// also set global flag to indicate current post has blocks
@@ -2115,10 +2117,13 @@ function gfo_get_post_name_only($post_id) {
 // ---------------------
 // Get Post Content Only
 // ---------------------
-function gfo_get_post_content_only($post_id) {
+function gfo_get_post_content_only($post_id=false) {
+	// 0.9.2: bug out if not a valid integer
+	if (!$post_id || !is_integer($post_id)) {return false;}
 	global $wpdb;
 	$query = "SELECT post_content FROM ".$wpdb->prefix."posts WHERE ID = '%d'";
-	$query = $wpdb->prepare($query, $id);
+	// 0.9.2: fix to use post_id not id
+	$query = $wpdb->prepare($query, $post_id);
 	$result = $wpdb->get_var($query);
 	return $result;
 }
@@ -2195,14 +2200,16 @@ function gfo_get_user_roles() {
 // --------------
 function gfo_get_post_types() {
 	$post_types = get_post_types(array(), 'objects');
-	$inbuilt = array(
+	$inbuilt_post_types = array(
 		'attachment', 'revision', 'nav_menu_item', 'custom_css',
 		'customize_changeset', 'oembed_cache', 'user_request', 'wp_block'
 	);
-	$inbuilt = apply_filters('gfo_inbuilt_post_types', $inbuilt);
+	$inbuilt = apply_filters('gfo_inbuilt_post_types', $inbuilt_post_types);
+	// 0.9.2: if not an array revert to default inbuilt post types
+	if (!is_array($inbuilt)) {$inbuild = $inbuild_post_types;}
 	$types = array();
 	foreach($post_types as $key => $post_type) {
-		if (is_array($inbuilt) && !in_array($key, $inbuilt)) {$types[$key] = $post_type->label;}
+		if (!in_array($key, $inbuilt)) {$types[$key] = $post_type->label;}
 		// TODO: check if/why next line is necessary? (I think it is not)
 		// if (!post_type_supports($post_type->name, 'custom-fields')) {unset($types[$key]);}
 	}
