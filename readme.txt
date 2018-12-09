@@ -17,7 +17,7 @@ Gutenberg Free Options for your WordPressed Burger err I mean Editor
 
 Want to use and/or not use the new Block Editor (Gutenberg) according to *your needs*?
 
-Guten Free Options allows you to smoothly transition your writing experience to WordPress 5+ by giving you full control over when a post should be edited with the Classic Editor or Block Editor... and have a button to easily switch between them like other page builders.
+Guten Free Options allows you to smoothly transition your writing experience to WordPress 5+ by giving you full control over when a post should be edited with the Classic Editor or Block Editor... plus have a button to easily switch between them like other page builders.
 
 With this plugin you can set the default editor to be used at ANY level, and more specific levels will override the previous ones - but only if they are set (similar to how cascading stylesheet inherit rules.) 
 
@@ -28,6 +28,7 @@ This means complete flexibility - defaults for multisite networks, single sites,
 * User Role Defaults - set a default editor for each role
 * User Selection - optional default editor per user via profile
 * Post Type - set a default editor to use for each post type
+* Post Type Locking - lock any post type at this filtering level
 * Existing Blocks - use block editor if post has existing blocks
 * Post Template - set a default editor for each post template
 * Metabox Override - allows selection on the post edit screen
@@ -36,9 +37,17 @@ This means complete flexibility - defaults for multisite networks, single sites,
 
 Compatible with both WordPress 4.9.x with Gutenberg plugin and WordPress 5 beta+ Block Editor, and includes *filters everywhere* for further custom use case control.
 
+Also features some extra tweaks:
+
+* Awesome button on either editor page to switch between editors
+* Disable the Gutenberg install plugin nag (for WP 4.9 only)
+* Remove the Gutenberg menu (for Gutenberg plugin only)
+* Prevent update disabling the Gutenberg plugin (on update to WP 5 only)
+(so you can continue to update Gutenberg plugin separately to core.)
+
 Forget your personal editor allergies and install this plugin to just use what you need when you need it! :-)
 
-[Guten Free Options Home] (http://wpmedic.tech/guten-free-options/)
+[Guten Free Options Home](http://wpmedic.tech/guten-free-options/)
 
 
 == Installation ==
@@ -63,6 +72,19 @@ Multisite Usage
 
 == Changelog ==
 
+= 0.9.3 = 
+* added post type locking options (prevents further filtering)
+* added querystring usage explanation to plugin admin screen
+* added option to prevent disable of Gutenberg plugin on WP5 update
+* added plugin images to plugin admin screen
+* moved add_filters to init to prevent duplicate filtering
+* fix to post type level selection filtering
+* fix to match default post type for new posts
+* fix value matching for multisite default
+* fix to only apply multisite default when network activated
+* fix to reset overriding plugin info values on submit
+* check added alternate submenu link for each post type
+
 = 0.9.2 =
 * hotfix for post_id in gfo_get_post_content_only function
 
@@ -72,7 +94,7 @@ Multisite Usage
 * add settings links to plugins and network plugins pages
 
 = 0.9.0 =
-* beta Working Public Test Version
+* beta Working Public Test Version (on Github)
 
 = 0.8.0 =
 * alpha Development Version
