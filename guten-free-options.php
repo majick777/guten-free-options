@@ -4,7 +4,7 @@ Plugin Name: Guten Free Options
 Plugin URI: http://wpmedic.tech/guten-free-options/
 Author: Tony Hayes
 Description: Gutenberg Free Options for your WordPressed Burger err I mean Editor
-Version: 0.9.2
+Version: 0.9.3
 Author URI: http://wpmedic.tech
 GitHub Plugin URI: majick777/guten-free-options
 */
@@ -19,7 +19,7 @@ GitHub Plugin URI: majick777/guten-free-options
 global $wordquestplugins, $gutenfree; $gutenfree = array();
 $slug = $gutenfree['slug'] = 'guten-free-options';
 $gutenfree['network-slug'] = 'guten-free-network-options';
-$wordquestplugins[$slug]['version'] = $gutenfree['version'] = '0.9.2';
+$wordquestplugins[$slug]['version'] = $gutenfree['version'] = '0.9.3';
 $wordquestplugins[$slug]['title'] = $gutenfree['title'] = 'Guten Free Options';
 $wordquestplugins[$slug]['namespace'] = $gutenfree['namespace'] = 'gfo';
 $wordquestplugins[$slug]['settings'] = $gutenfree['settings'] = 'gfo';
@@ -123,6 +123,13 @@ function gfo_network_plugin_action_links($links, $file, $plugin_data, $context) 
 $plugin_options = get_option('guten_free_options');
 if ($plugin_options && is_array($plugin_options)) {$gutenfree = array_merge($gutenfree, $plugin_options);}
 
+// -----------------------------------------------
+// Prevent Disabling of Gutenberg plugin on Update
+// -----------------------------------------------
+// 0.9.3: prevent update disabling gutenberg plugin
+$prevent_disable = gfo_get_setting('prevent_disable');
+if ($prevent_disable) {define('GUTENBERG_USE_PLUGIN', true);}
+
 // ----------------------------
 // Check Debug Switch Overrides
 // ----------------------------
@@ -136,8 +143,10 @@ elseif (isset($_REQUEST['debug']) && ($_REQUEST['debug'] == '1')) {$gutenfree['d
 function gfo_get_defaults() {
 
 	// set site default for a multisite site or single site
-	if (is_multisite()) {$default = '';} else {$default = 'classic';}
+	// 0.9.3: fix to default value of inherit
+	if (is_multisite()) {$default = 'inherit';} else {$default = 'classic';}
 
+	// 0.9.3: added prevent_disable switch
 	$defaults = array(
 
 		/* Switches */
@@ -145,6 +154,7 @@ function gfo_get_defaults() {
 		'switch_buttons'		=> 'yes',
 		'disable_nag'			=> 'yes',
 		'remove_menu'			=> 'yes',
+		'prevent_disable'		=> 'yes',
 		'check_blocks'			=> 'yes',
 		'user_default'			=> '',
 		'editor_metabox'		=> 'yes',
@@ -153,6 +163,8 @@ function gfo_get_defaults() {
 		/* Post Types */
 		'classic_types'			=> array(),
 		'block_types'			=> array(),
+		// 0.9.3: added post type locks
+		'lock_types'			=> array(),
 
 		/* User Roles */
 		'classic_roles'			=> array(),
@@ -215,6 +227,7 @@ function gfo_update_settings() {
 	if (!current_user_can($capability)) {return;}
 	check_admin_referer('guten-free-options');
 
+	// 0.9.3: added prevent_disable switch
 	$options = array(
 
 		/* Switches */
@@ -222,6 +235,7 @@ function gfo_update_settings() {
 		'switch_buttons'		=> 'checkbox',
 		'disable_nag'			=> 'checkbox',
 		'remove_menu'			=> 'checkbox',
+		'prevent_disable'		=> 'checkbox',
 		'check_blocks'			=> 'checkbox',
 		'user_default'			=> 'checkbox',
 		'editor_metabox'		=> 'checkbox',
@@ -277,6 +291,11 @@ function gfo_update_settings() {
 	$block_types = $gutenfree['block_types'];
 	if (!is_array($block_types)) {$block_types = array();}
 	$post_types = gfo_get_post_types();
+	// 0.9.3: get/set post type lock array
+	$lock_types = $checked_lock_types = array();
+	if (isset($gutenfree['lock_types']) && is_array($gutenfree['lock_types'])) {
+		$lock_types = $gutenfree['lock_types'];
+	}
 
 	// get user role settings
 	$classic_roles = $gutenfree['classic_roles'];
@@ -346,19 +365,36 @@ function gfo_update_settings() {
 				}
 			}
 
-			foreach ($post_templates as $file => $label) {
-				if ($key.'.php' == $file) {
-					$label = $post_templates[$file];
-					if ($value == '') {
-						if (array_key_exists($key, $block_templates)) {unset($block_templates[$key]);}
-						if (array_key_exists($key, $classic_templates)) {unset($classic_templates[$key]);}
-					} elseif ($value == 'classic') {
-						if (!array_key_exists($key, $classic_templates)) {$classic_templates[$key] = $label;}
-						if (array_key_exists($key, $block_templates)) {unset($block_templates[$key]);}
-					} elseif ($value == 'block') {
-						if (!array_key_exists($key, $block_templates)) {$block_templates[$key] = $label;}
-						if (array_key_exists($key, $classic_templates)) {unset($classic_templates[$key]);}
+			// 0.9.3: check post template count before looping
+			if (count($post_templates) > 0) {
+				foreach ($post_templates as $file => $label) {
+					if ($key.'.php' == $file) {
+						$label = $post_templates[$file];
+						if ($value == '') {
+							if (array_key_exists($key, $block_templates)) {unset($block_templates[$key]);}
+							if (array_key_exists($key, $classic_templates)) {unset($classic_templates[$key]);}
+						} elseif ($value == 'classic') {
+							if (!array_key_exists($key, $classic_templates)) {$classic_templates[$key] = $label;}
+							if (array_key_exists($key, $block_templates)) {unset($block_templates[$key]);}
+						} elseif ($value == 'block') {
+							if (!array_key_exists($key, $block_templates)) {$block_templates[$key] = $label;}
+							if (array_key_exists($key, $classic_templates)) {unset($classic_templates[$key]);}
+						}
 					}
+				}
+			}
+		} elseif (strpos($key, 'gfo_lock_type_') === 0) {
+
+			// 0.9.3: check post type locking checkboxes
+
+			// === Post Type Locks ===
+			// -----------------------
+
+			$key = substr($key, strlen('gfo_lock_type_'), strlen($key));
+			foreach ($post_types as $post_type_key => $post_type_label) {
+				if ( ($key == $post_type_key) && ($value == 'yes') && !in_array($key, $lock_types) ) {
+					// add lock types for post types with checkbox checked
+					$lock_types[] = $key; $checked_lock_types[] = $key;
 				}
 			}
 		}
@@ -371,6 +407,24 @@ function gfo_update_settings() {
 	$gutenfree['block_roles'] = $block_roles;
 	$gutenfree['classic_templates'] = $classic_templates;
 	$gutenfree['block_templates'] = $block_templates;
+
+	// remove locks from active post types with unchecked checkboxes
+	foreach ($post_types as $post_type_key => $post_type_label) {
+		if (!in_array($post_type_key, $checked_lock_types) && in_array($post_type_key, $lock_types)) {
+			$i = array_search($post_type_key, $lock_types); unset($lock_types[$i]);
+		}
+	}
+
+	// 0.9.3: recheck post type lock settings
+	// ? maybe only apply lock if post type is set to classic or block (not inherit) ?
+	// if (count($lock_types) > 0) {
+	//	foreach ($lock_types as $i => $lock_type) {
+	//		if (!array_key_exists($lock_type, $classic_types) && !array_key_exists($lock_type, $block_types)) {
+	//			unset($lock_types[$i];
+	//		}
+	//	}
+	// }
+	$gutenfree['lock_types'] = $lock_types;
 
 	update_option('guten_free_options', $gutenfree);
 }
@@ -386,7 +440,10 @@ function gfo_reset_settings() {
 	check_admin_referer('guten-free-options');
 
 	// reset plugin settings to defaults
-	global $gutenfree; $gutenfree = gfo_get_defaults();
+	global $gutenfree;
+	// 0.9.3: fix to not override plugin info values
+	$defaults = gfo_get_defaults();
+	foreach ($defaults as $key => $value) {$gutenfree[$key] = $value;}
 	update_option('guten_free_options', $gutenfree);
 
 	// settings reset admin message
@@ -421,12 +478,15 @@ function gfo_update_network_settings() {
 function gfo_plugin_page_header($network=false) {
 	global $gutenfree;
 	$icon_url = plugins_url('images/guten-free-options.png', __FILE__);
-	echo '<table><tr><td><!-- <img src="'.$icon_url.'"> --></td>';
+	$wpmedic_icon_url = plugins_url('images/wpmedic.png', __FILE__);
+	echo '<br><table><tr><td><img src="'.$icon_url.'" width="96" height="96"></td>';
 	echo '<td width="20"></td><td>';
-		echo "<table><tr><td><h3 style='font-size:20px;'>".$gutenfree['title']."</h3></td><td width='20'></td>";
-		echo "<td><h3>v".$gutenfree['version']."</h3></td></tr>";
-		echo "<tr><td colspan='3' align='center'>".__('by','guten-free-options');
-		echo " <a href='http://wpmedic.tech/guten-free-options/' style='text-decoration:none;' target=_blank><b>WP Medic</b></a>";
+		echo "<table><tr><td><h3 style='font-size:20px;margin:10px;'>".$gutenfree['title']."</h3></td><td width='20'></td>";
+		echo "<td><h3 style='margin:10px;'>v".$gutenfree['version']."</h3></td></tr>";
+		echo "<tr><td colspan='3' align='center'>";
+			echo "<table><tr><td><font style='font-size:16px;'>".__('by','guten-free-options')."</font></td>";
+			echo "<td><a href='http://wpmedic.tech/guten-free-options/' style='text-decoration:none;font-size:16px;' target=_blank><b>WP Medic</b></a></td>";
+			echo "<td><a href='http://wpmedic.tech/' target=_blank><img src='".$wpmedic_icon_url."' width='48' height='48' border='0'></td></tr></table>";
 		echo "</td></tr></table>";
 	echo '</td><td width="50"></td>';
 	if ( (isset($_REQUEST['updated'])) && ($_REQUEST['updated'] == 'yes') ) {
@@ -471,20 +531,15 @@ function gfo_settings_page() {
 	echo "<i>".__('Site Default','guten-free-options')."</i> -> ";
 	echo "<i>".__('User Filtering')."</i> -> ";
 	echo "<i>".__('Post Type Filtering','guten-free-options')."</i> -> ";
-	echo "<i>".__('Post Filtering','guten-free-options')."</i> -> ";
-	echo "<i>".__('Querystring','guten-free-options')."</i><br>";
-
-	echo "<i>".__('Admin Post Overrides','guten-free-options')."</i> ";
-	echo __('set here will override all these settings for specified posts.','guten-free-options')."<br><br>";
+	echo "<i>".__('Post Filtering','guten-free-options')."</i><br>";
+	echo "-> <i>".__('Querystring Overrides','guten-free-options')."</i> ";
+	echo __('set via the browser URL address will override the above settings.','guten-free-options')."<br>";
+	echo "-> <i>".__('Admin Post Overrides','guten-free-options')."</i> ";
+	echo __('set here will override all the above settings for the specified posts.','guten-free-options')."<br><br>";
 
 	echo __('If any of the conditions set match for the pageload, they will override the previous level(s).','guten-free-options')."<br>";
 	echo __('This makes for the most flexible options, while still keeping all settings completely optional!','guten-free-options')."<br>";
-	echo __('(Similar to how cascading stylesheet rules work for styling page elements.)','guten-free-options')."<br><br>";
-
-	// shorthand settings note
-	echo "<table><tr><td><i>".__('Classic','guten-free-options')."</i> = <i>".__('Classic TinyMCE Editor','guten-free-options')."</i></td>";
-	echo "<td width='10'></td><td> | </td><td width='10'></td>";
-	echo "<td><i>".__('Block','guten-free-options')."</i> = <i>".__('Gutenberg Block Editor','guten-free-options')."</i></td></tr></table>";
+	echo __('(This hierarchy of settings is similar to how cascading stylesheet rules work for page elements.)','guten-free-options')."<br><br>";
 
 	// open settings form
 	echo "<form id='gfo-settings-form' method='post'>";
@@ -501,25 +556,29 @@ function gfo_settings_page() {
 		$default_editor = gfo_get_setting('default_editor', false);
 		echo "<tr><td class='label-cell' style='vertical-align:top;'><b>".__('Site Default Editor','guten-free-options')."</b></td>";
 		echo "<td width='10'></td>";
-		echo "<td><input type='radio' name='gfo_default_editor' value='classic'";
+		echo "<td style='vertical-align:top;'><input type='radio' name='gfo_default_editor' value='classic'";
 			if ($default_editor == 'classic') {echo " checked";}
 		echo "> ".__('Classic','guten-free-options')."</td><td width='10'></td>";
 
-		echo "<td><input type='radio' name='gfo_default_editor' value='block'";
+		echo "<td style='vertical-align:top;'><input type='radio' name='gfo_default_editor' value='block'";
 			if ($default_editor == 'block') {echo " checked";}
 		echo "> ".__('Block','guten-free-options')."</td><td width='10'></td>";
 
 		echo "<td>";
 			// optional inherit from multisite setting
+			$helper = __('Sets the Site Default Editor.','guten-free-options');
 			if (is_multisite()) {
 				echo "<table><tr><td>";
 				echo "<input type='radio' name='gfo_default_editor' value='inherit'";
-					if ($default_editor == '') {echo " checked";}
+					// 0.9.3: fix to checked value match
+					if ( ($default_editor == '') || ($default_editor == 'inherit') ) {echo " checked";}
 				echo "> ".__('Inherit','guten-free-options')."</td>";
-				echo "<td width='20'></td><td>";
-			}
-			echo __('Sets the Site Default Editor.','guten-free-options');
-			if (is_multisite()) {echo "</td></tr></table>";}
+				echo "<td width='20'></td><td>".$helper."</td></tr></table>";
+			} else {echo $helper."<br>";}
+
+			// shorthand settings note
+			echo "<i>".__('Classic','guten-free-options')."</i> = <i>".__('Classic TinyMCE Editor','guten-free-options')."</i><br>";
+			echo "<i>".__('Block','guten-free-options')."</i> = <i>".__('Gutenberg Block Editor','guten-free-options')."</i>";
 		echo "</td></tr>";
 
 		// --- Switch Editor Buttons? ---
@@ -536,17 +595,18 @@ function gfo_settings_page() {
 
 		echo "<tr height='10'><td> </td></tr>";
 
-		// --- Disable Try Gutenberg Nag? ---
-		$disable_nag = gfo_get_setting('disable_nag', false);
-		echo "<tr><td class='label-cell'><b>".__('Disable Try Gutenberg Panel?','guten-free-options')."</b></td>";
+		// --- Prevent Gutenberg Plugin Disable on Update ---
+		$prevent_disable = gfo_get_setting('prevent_disable', false);
+		echo "<tr><td class='label-cell'><b>".__('Prevent Gutenberg Disable?','guten-free-options')."</b></td>";
 		echo "<td width='10'></td>";
-		echo "<td class='yes-no-cell'><input type='radio' name='gfo_disable_nag' value='yes'";
-			if ($disable_nag == 'yes') {echo " checked";}
+		echo "<td class='yes-no-cell'><input type='radio' name='gfo_prevent_disable' value='yes'";
+			if ($prevent_disable == 'yes') {echo " checked";}
 		echo "> ".__('Yes')."</td><td width='10'></td>";
-		echo "<td class='yes-no-cell'><input type='radio' name='gfo_disable_nag' value=''";
-			if ($disable_nag != 'yes') {echo " checked";}
+		echo "<td class='yes-no-cell'><input type='radio' name='gfo_prevent_disable' value=''";
+			if ($prevent_disable != 'yes') {echo " checked";}
 		echo "> ".__('No')."</td><td width='10'></td>";
-		echo "<td>".__('Affects pre-5.0 WordPress only.','guten-free-options')."</td></tr>";
+		echo "<td>".__('Continue using Gutenberg plugin version.','guten-free-options');
+		echo "<br>".__('(active plugin on WordPress 5+ update only)','guten-free-options')."</td></tr>";
 
 		// --- Remove Gutenberg Admin Menu? ---
 		$remove_menu = gfo_get_setting('remove_menu', false);
@@ -559,6 +619,18 @@ function gfo_settings_page() {
 			if ($remove_menu != 'yes') {echo " checked";}
 		echo "> ".__('No')."</td><td width='10'></td>";
 		echo "<td>".__('Affects active Gutenberg plugin only.','guten-free-options')."</td></tr>";
+
+		// --- Disable Try Gutenberg Nag? ---
+		$disable_nag = gfo_get_setting('disable_nag', false);
+		echo "<tr><td class='label-cell'><b>".__('Disable Try Gutenberg Panel?','guten-free-options')."</b></td>";
+		echo "<td width='10'></td>";
+		echo "<td class='yes-no-cell'><input type='radio' name='gfo_disable_nag' value='yes'";
+			if ($disable_nag == 'yes') {echo " checked";}
+		echo "> ".__('Yes')."</td><td width='10'></td>";
+		echo "<td class='yes-no-cell'><input type='radio' name='gfo_disable_nag' value=''";
+			if ($disable_nag != 'yes') {echo " checked";}
+		echo "> ".__('No')."</td><td width='10'></td>";
+		echo "<td>".__('Affects pre-5.0 WordPress only.','guten-free-options')."</td></tr>";
 
 	echo "</table>";
 
@@ -634,10 +706,18 @@ function gfo_settings_page() {
 	// --------------------------
 	echo "<h4>".__('Post Type Defaults','guten-free-options')."</h4>";
 
+	// 0.9.3: add post type locking explanation
+	echo __('Note: the Lock option allows you to lock the editor to be used for technical reasons.','guten-free-options')."<br>";
+	echo __('If it is ticked for a Post Type, further filtering for that Post Type will be ignored.','guten-free-options')."<br>";
+	echo __('Querystring and metabox overrides will no longer work or show for that post type.','guten-free-options')."<br>";
+	echo __('(Only a manual Admin Override for a specific post of that post type will be respected.)','guten-free-options')."<br>";
+
 	// get all post type settings
 	$post_types = gfo_get_post_types();
 	$classic_types = gfo_get_setting('classic_types', false);
 	$block_types = gfo_get_setting('block_types', false);
+	// 0.9.3: get post type locking options
+	$lock_types = gfo_get_setting('lock_types', false);
 
 	// merge all post types (to preserve existing settings)
 	$all_post_types = array();
@@ -656,7 +736,9 @@ function gfo_settings_page() {
 	echo "<table><tr><td class='label-cell'><b>".__('Post Type','guten-free-options')."</b></td><td width='10'></td>";
 	echo "<td align='center'><b>".__('Classic','guten-free-options')."</b></td><td width='5'></td>";
 	echo "<td align='center'><b>".__('Inherit','guten-free-options')."</b></td><td width='5'></td>";
-	echo "<td align='center'><b>".__('Block','guten-free-options')."</b></td></tr>";
+	echo "<td align='center'><b>".__('Block','guten-free-options')."</b></td><td width='10'></td>";
+	// 0.9.3: add post type locking column header
+	echo "<td align='center'><b>".__('Lock?','guten-free-options')."</b></td></tr>";
 
 		// loop all post types to display options
 		foreach ($all_post_types as $key => $label) {
@@ -669,6 +751,11 @@ function gfo_settings_page() {
 			echo "></td><td width='5'></td>";
 			echo "<td align='center'><input type='radio' name='gfo_post_type_".$key."' value='block'";
 				if (array_key_exists($key, $block_types)) {echo " checked";}
+			echo "></td><td width='10'></td>";
+
+			// 0.9.3: add post type locking checkboxes
+			echo "<td align='center'><input type='checkbox' name='gfo_lock_type_".$key."' value='yes'";
+				if (is_array($lock_types) && in_array($key, $lock_types)) {echo " checked";}
 			echo "></td></tr>";
 		}
 
@@ -753,7 +840,7 @@ function gfo_settings_page() {
 		echo "<td class='yes-no-cell'><input type='radio' name='gfo_editor_metabox' value=''";
 			if ($editor_metabox != 'yes') {echo " checked";}
 		echo "> ".__('No')."</td><td width='10'></td>";
-		echo "<td>".__('Adds metabox to writing screen allowing editor override.','guten-free-options')."</td></tr>";
+		echo "<td>".__('Adds metabox to writing screen for editor overriding.','guten-free-options')."</td></tr>";
 
 		// --- No Override Metabox ---
 		// $no_override = gfo_get_setting('no_override', false);
@@ -763,6 +850,14 @@ function gfo_settings_page() {
 		// echo __('(comma-separated list of Post Type slugs)','guten-free-options')."</td></tr>";
 
 	echo "</table>";
+
+	// --- Querystring Overrides ---
+	// -----------------------------
+	// 0.9.3: added missing querystring level explanation
+	echo "<h3>".__('Querystrings','guten-free-options')."</h3>";
+	echo __('You can use querystrings to manually override the editor loaded via the browser URL.','guten-free-options')."<br>";
+	echo "<table><tr><td>/wp-admin/post.php?post=<font color='#E00'>x</font>&action=edit<i>&editor=classic</i></td><td width='20'></td><td>".__('Override to use Classic Editor','guten-free-options')."</td></tr>";
+	echo "<tr><td>/wp-admin/post.php?post=<font color='#E00'>x</font>&action=edit<i>&editor=block</i></td><td width='20'></td><td>".__('Override to use Block Editor','guten-free-options')."</td></table><br>";
 
 	// --- Admin Post Overrides ---
 	// ----------------------------
@@ -959,6 +1054,45 @@ function gfo_cooker() {
 		}
 	}
 
+	// 0.9.3: use single action for adding extra post type submenus
+	add_action('admin_menu', 'gfo_add_editor_submenus');
+
+
+	// --- Add Post Type Filters ---
+	// -----------------------------
+
+	// 0.9.3: add all gfo_post_type filters on init
+
+	// maybe get base network setting for default editor
+	add_filter('gfo_post_type_filters', 'gfo_check_network_default', 10, 3);
+
+	// get base site setting for default editor
+	add_filter('gfo_post_type_filters', 'gfo_check_site_default', 20, 3);
+
+	// check user role (plugin setting)
+	add_filter('gfo_post_type_filters', 'gfo_check_user_role', 30, 3);
+
+	// check user selection (user meta)
+	add_filter('gfo_post_type_filters', 'gfo_check_user_selection', 40, 3);
+
+	// check post type default (plugin setting)
+	add_filter('gfo_post_type_filters', 'gfo_check_post_type', 50, 3);
+
+	// 0.9.3: add all gfo_single_post_filters on init
+
+	// maybe check for Gutenberg blocks (in post content)
+	add_filter('gfo_single_post_filters', 'gfo_check_for_blocks', 20, 3);
+
+	// check page template (plugin settings)
+	add_filter('gfo_single_post_filters', 'gfo_check_template_override', 30, 3);
+
+	// check single post ID overrides (post meta via metabox)
+	add_filter('gfo_single_post_filters', 'gfo_check_post_override', 40, 3);
+
+
+	// --- Check Loading ---
+	// ---------------------
+
 	// check if Gutenberg should load
 	$check_load = gfo_check_gutenberg_load();
 
@@ -986,9 +1120,6 @@ function gfo_cooker() {
 	// gutenberg or block editor is loaded
 	if (!isset($load) || (isset($load) && $load) ) {
 
-		// add Classic Editor Admin menu links
-		add_action( 'admin_menu', 'gfo_classic_editor_submenus' );
-
 		// Admin Bar menu links (removed in favour of onscreen buttons)
 		// add_action( 'admin_bar_menu', 'gfo_admin_bar_menu', 120 );
 
@@ -998,11 +1129,6 @@ function gfo_cooker() {
 		// note: 'page' here actually means any hierarchical post type
 		// add_filter('page_row_actions', 'gfo_add_edit_links', 15, 2);
 		// add_filter('post_row_actions', 'gfo_add_edit_links', 15, 2);
-
-	} else {
-
-		// 0.9.1: add Block Editor Admin menu links
-		add_action( 'admin_menu', 'gfo_block_editor_submenus' );
 
 	}
 
@@ -1071,6 +1197,12 @@ function gfo_check_gutenberg_load($post_id=null) {
 		// set default load if not already set
 		if (is_null($load)) {$load = true;}
 
+		// 0.9.3: moved up to match settings hierarchy
+		// check user default editor (roles / user selection)
+		global $current_user; $current_user = wp_get_current_user();
+		$load = gfo_check_user_role($load, null, $current_user);
+		$load = gfo_check_user_selection($load, null, $current_user);
+
 		// if possible, check post type and post ID (plugin settings)
 		if (is_null($post_id) && isset($_GET['post'])) {$post_id = absint($_GET['post']);}
 		if (!is_null($post_id) && is_numeric($post_id) && ($post_id > 0)) {
@@ -1079,14 +1211,14 @@ function gfo_check_gutenberg_load($post_id=null) {
 			// where there is a post ID available to be checked
 			// ...otherwise need to rely on later filtering anyway
 			$post_type = gfo_get_post_type($post_id);
-			$load = gfo_can_edit_post_type($load, post_type);
+
+			// 0.9.3: fix to missing variable sign
+			$load = gfo_can_edit_post_type($load, $post_type);
 			$load = gfo_can_edit_post($load, $post_id);
 
 		} else {
-			// check user default editor (roles / user selection)
-			global $current_user; $current_user = wp_get_current_user();
-			$load = gfo_check_user_role($load, null, $current_user);
-			$load = gfo_check_user_selection($load, null, $current_user);
+			// 0.9.3: check using post type default (for post-new.php)
+			$load = gfo_can_edit_post_type($load, 'post');
 		}
 	}
 
@@ -1121,34 +1253,29 @@ function gfo_can_edit_post_type($can_edit, $post_type) {
 
 	global $gutenfree; $edit = $can_edit;
 
-	// check for editor querystrings (user overrides)
-	if (isset($_GET['editor'])) {
-		if ($_GET['editor'] == 'block') {return true;}
-		elseif ($_GET['editor'] == 'classic') {return false;}
-	} elseif (isset($_GET['classic-editor'])) {return false;}
+	// 0.9.3: also check locked post types to ignore querystrings for
+	$lock_types = gfo_get_setting('lock_types'); $locked = false;
+	if (is_array($lock_types) && in_array($post_type, $lock_types)) {$locked = true;}
+	$gutenfree['locked'] = $locked;
 
-	// ? maybe force use of block editor for wp_block post types ?
-	// if ($post_type == 'wp_block') {return true;}
+	// check for editor querystrings (manual user override)
+	// 0.9.3: ignore querystring overrides for locked post types
+	if (!$locked) {
+		if (isset($_GET['editor'])) {
+			if ($_GET['editor'] == 'block') {return true;}
+			elseif ($_GET['editor'] == 'classic') {return false;}
+		} elseif (isset($_GET['classic-editor'])) {return false;}
+	}
 
 	// maybe prevent duplicate (re)filtering
 	if (isset($gutenfree[$post_type.'_filtered'])) {return $gutenfree[$post_type.'_filtered'];}
 
-	// maybe get base network setting for default editor
-	add_filter('gfo_post_type_filters', 'gfo_check_network_default', 10, 3);
+	// ? maybe force use of block editor for wp_block post types ?
+	// if ($post_type == 'wp_block') {return true;}
 
-	// get base site setting for default editor
-	add_filter('gfo_post_type_filters', 'gfo_check_site_default', 20, 3);
+	// 0.9.3: add post type filters on init (to prevent adding duplicate filters)
 
-	// check user role (plugin setting)
-	add_filter('gfo_post_type_filters', 'gfo_check_user_role', 30, 3);
-
-	// check user selection (user meta)
-	add_filter('gfo_post_type_filters', 'gfo_check_user_selection', 40, 3);
-
-	// check post type default (plugin setting)
-	add_filter('gfo_post_type_filters', 'gfo_check_post_type', 50, 3);
-
-	// apply all post type editor default filtering
+	// apply all above default editor default filters
 	global $current_user; $current_user = wp_get_current_user();
 	$can_edit = apply_filters('gfo_post_type_filters', $can_edit, $post_type, $current_user);
 
@@ -1167,9 +1294,14 @@ function gfo_can_edit_post_type($can_edit, $post_type) {
 // maybe get base network setting for default editor
 function gfo_check_network_default($can_edit, $post_type=null, $user=null) {
 	if (!is_multisite()) {return $can_edit;}
-	$editor = get_site_option('network_default_editor');
-	if ($editor == 'classic') {$can_edit = false; /* gfo_debug_log('Multisite Network Default -> Classic'); */}
-	elseif ($editor == 'block') {$can_edit = true; /* gfo_debug_log('Multisite Network Default -> Block'); */}
+	// 0.9.3: add missing check for if plugin is still multisite activated
+	$plugins = get_site_option('active_sitewide_plugins');
+	$plugin = plugin_basename(__FILE__);
+	if (array_key_exists($plugin, $plugins)) {
+		$editor = get_site_option('network_default_editor');
+		if ($editor == 'classic') {$can_edit = false; /* gfo_debug_log('Multisite Network Default -> Classic'); */ }
+		elseif ($editor == 'block') {$can_edit = true; /* gfo_debug_log('Multisite Network Default -> Block'); */ }
+	}
 	return $can_edit;
 }
 
@@ -1179,9 +1311,9 @@ function gfo_check_network_default($can_edit, $post_type=null, $user=null) {
 // get base site setting for default editor
 function gfo_check_site_default($can_edit, $post_type=null, $user=null) {
 	$editor = gfo_get_setting('default_editor');
-	if ($can_edit && ($editor == 'classic')) {$can_edit = false; /* gfo_debug_log('Site Default -> Classic'); */}
-	elseif (!$can_edit && ($editor == 'block')) {$can_edit = true; /* gfo_debug_log('Site Default -> Block'); */}
-	return $can_edit;
+	if ($can_edit && ($editor == 'classic')) {$can_edit = false; if (is_multisite()) {gfo_debug_log('Site Default -> Classic');} }
+	elseif (!$can_edit && ($editor == 'block')) {$can_edit = true; if (is_multisite()) {gfo_debug_log('Site Default -> Block');} }
+	return $can_edit; // (inherit)
 }
 
 // ---------------
@@ -1212,7 +1344,7 @@ function gfo_check_user_role($can_edit, $post_type=null, $user) {
 		}
 	}
 
-	// only change if no conflicting roles
+	// only change if no conflicting role settings
 	if ($classic_role && !$block_role) {
 		$can_edit = false; gfo_debug_log('User Role ('.$classic_common.') -> Classic');
 	} elseif ($block_role && !$classic_role) {
@@ -1246,12 +1378,12 @@ function gfo_check_user_selection($can_edit, $post_type=null, $user) {
 function gfo_check_post_type($can_edit, $post_type, $user=null) {
 	if ($can_edit) {
 		$classic_types = gfo_get_setting('classic_types');
-		if (is_array($classic_types) && in_array($post_type, $classic_types)) {
+		if (is_array($classic_types) && array_key_exists($post_type, $classic_types)) {
 			$can_edit = false; gfo_debug_log('Post Type '.$post_type.' -> Classic');
 		}
 	} else {
 		$block_types = gfo_get_setting('block_types');
-		if (is_array($block_types) && in_array($post_type, $block_types)) {
+		if (is_array($block_types) && array_key_exists($post_type, $block_types)) {
 			$can_edit = true; gfo_debug_log('Post Type '.$post_type.' -> Block');
 		}
 	}
@@ -1272,11 +1404,18 @@ function gfo_can_edit_post($can_edit, $post) {
 	if (!is_object($post)) {$post = get_post($post);}
 	$post_id = $post->ID;
 
-	// check admin-specified override (plugin setting)
+	// check full admin-specified override (plugin setting)
 	$override = gfo_check_admin_override($post_id);
 	if (!is_null($override)) {return $override;}
 
-	// check for editor querystrings (user override)
+	// 0.9.3: also check locked post types to ignore querystrings for
+	$lock_types = gfo_get_setting('lock_types'); $locked = false;
+	$post_type = get_post_type($post);
+	if (is_array($lock_types) && in_array($post_type, $lock_types)) {$locked = true;}
+	// if locked already, bug out here as no need to process further filters
+	if ($locked) {return $can_edit;}
+
+	// check for editor querystrings (manual user override)
 	if (isset($_GET['editor'])) {
 		if ($_GET['editor'] == 'block') {return true;}
 		elseif ($_GET['editor'] == 'classic') {return false;}
@@ -1285,17 +1424,11 @@ function gfo_can_edit_post($can_edit, $post) {
 	// maybe prevent duplicate (re)filtering
 	if (isset($gutenfree[$post_id.'_filtered'])) {return $gutenfree[$post_id.'_filtered'];}
 
-	// maybe check for Gutenberg blocks (in post content)
-	add_filter('gfo_single_post_filters', 'gfo_check_for_blocks', 20, 2);
-
-	// check page template (plugin settings)
-	add_filter('gfo_single_post_filters', 'gfo_check_template_override', 30, 2);
-
-	// check single post ID overrides (post meta via metabox)
-	add_filter('gfo_single_post_filters', 'gfo_check_post_override', 40, 2);
+	// 0.9.3: add all single post filters on init (to prevent duplicate filters)
 
 	// apply all the single post filters now
-	$can_edit = apply_filters('gfo_single_post_filters', $can_edit, $post_id);
+	global $current_user; $current_user = wp_get_current_user();
+	$can_edit = apply_filters('gfo_single_post_filters', $can_edit, $post_id, $current_user);
 
 	$gutenfree[$post_id.'_filtered'] = $can_edit;
 	return $can_edit;
@@ -1304,7 +1437,7 @@ function gfo_can_edit_post($can_edit, $post) {
 // --------------------------
 // Check for Gutenberg Blocks
 // --------------------------
-function gfo_check_for_blocks($can_edit, $post_id) {
+function gfo_check_for_blocks($can_edit, $post_id, $user) {
 	if ($can_edit) {return $can_edit;}
 	global $gutenfree;
 	$check_blocks = gfo_get_setting('check_blocks');
@@ -1324,7 +1457,7 @@ function gfo_check_for_blocks($can_edit, $post_id) {
 // Check Post Template Overrides
 // -----------------------------
 // note: since WP 4.7 any post type can have a page template
-function gfo_check_template_override($can_edit, $post_id) {
+function gfo_check_template_override($can_edit, $post_id, $user) {
 	$template = get_page_template_slug($post_id);
 	if (!$template) {return $can_edit;}
 	$template = str_replace('.php', '', $template);
@@ -1345,7 +1478,7 @@ function gfo_check_template_override($can_edit, $post_id) {
 // -----------------------------------
 // Check Single Post Metabox Overrides
 // -----------------------------------
-function gfo_check_post_override($can_edit, $post_id) {
+function gfo_check_post_override($can_edit, $post_id, $user) {
 	$override = get_post_meta($post_id, '_editor_override', true);
 	if (!$override) {return $can_edit;}
 	if ($override == 'classic') {
@@ -1532,7 +1665,7 @@ function gfo_gutenberg_button() {
 	if (!$switch_button) {return;}
 
 	// if (isset($gutenfree['hasblocks']) && $gutenfree['hasblocks']) {
-	// 	TODO: maybe alert that current post has existing blocks?
+	// 	TODO: maybe add an alert that current post has existing blocks?
 	// }
 
 	// set edit URL and GutenButton
@@ -1614,7 +1747,7 @@ function gfo_classic_button() {
 // Replace Editor Scripts
 // ----------------------
 // JS and CSS enqueue code from Classic Editor plugin...
-// ...presumably for if classic editor scripts are deprecated (hopefully not!)
+// ...presumably for when classic editor scripts are deprecated (hopefully never!)
 function gfo_classic_editor_replace($return) {
 
 	// Bail if the editor has been replaced already.
@@ -1691,30 +1824,25 @@ function gfo_classic_editor_replace($return) {
 // ADMIN
 // =====
 
-// ----------------------
-// Editor Submenu Actions
-// ----------------------
-function gfo_classic_editor_submenus() {gfo_add_editor_submenus('classic');}
-function gfo_block_editor_submenus() {gfo_add_editor_submenus('block');}
-
 // --------------------------
 // Add Submenu Links Abstract
 // --------------------------
-// (via Classic Editor plugin)
-function gfo_add_editor_submenus($editor) {
+// (modified from Classic Editor plugin)
+// 0.9.3: use single loading action and refilter for each post type
+function gfo_add_editor_submenus() {
 
-	foreach ( get_post_types( array( 'show_ui' => true ) ) as $type ) {
+	foreach ( get_post_types( array( 'show_ui' => true ) ) as $post_type ) {
 
-		$type_obj = get_post_type_object( $type );
+		$type_obj = get_post_type_object( $post_type );
 
-		if ( ! $type_obj->show_in_menu || ! post_type_supports( $type, 'editor' ) ) {
+		if ( ! $type_obj->show_in_menu || ! post_type_supports( $post_type, 'editor' ) ) {
 			continue;
 		}
 
 		if ( $type_obj->show_in_menu === true ) {
-			if ( 'post' === $type ) {
+			if ( 'post' === $post_type ) {
 				$parent_slug = 'edit.php';
-			} elseif ( 'page' === $type ) {
+			} elseif ( 'page' === $post_type ) {
 				$parent_slug = 'edit.php?post_type=page';
 			} else {
 				// Not for a submenu.
@@ -1726,10 +1854,14 @@ function gfo_add_editor_submenus($editor) {
 
 		$item_name = $type_obj->labels->add_new . ' ';
 
-		if ($editor == 'classic') {$item_name .= __( '(Classic)', 'guten-free-options' );}
-		if ($editor == 'block') {$item_name .= __( '(Block)', 'guten-free-options' );}
+		// 0.9.3: check/filter submenu item for each post type default
+		global $current_user; $current_user = wp_get_current_user();
+		$block_editor = apply_filters('gfo_post_type_filters', false, $post_type, $current_user);
 
-		$add_new_url = "post-new.php?post_type=" . $type . "&editor=" .$editor;
+		if ($block_editor) {$editor = 'classic'; $item_name .= __( '(Classic)', 'guten-free-options' );}
+		else {$editor = 'block'; $item_name .= __( '(Block)', 'guten-free-options' );}
+
+		$add_new_url = "post-new.php?post_type=" . $post_type . "&editor=" .$editor;
 		add_submenu_page( $parent_slug, $type_obj->labels->add_new, $item_name, $type_obj->cap->edit_posts, $add_new_url );
 	}
 }
@@ -1737,7 +1869,7 @@ function gfo_add_editor_submenus($editor) {
 // ---------------
 // Admin Bar Links
 // ---------------
-// (via Classic Editor plugin)
+// [unused] - via Classic Editor plugin
 function gfo_admin_bar_menu($wp_admin_bar) {
 
 	global $post_id, $wp_the_query;
@@ -1781,7 +1913,7 @@ function gfo_admin_bar_menu($wp_admin_bar) {
 // ----------------------
 // Post/Page Action Links
 // ----------------------
-// (via Classic Editor plugin)
+// [unused] - via Classic Editor plugin
 function gfo_add_edit_links($actions, $post) {
 
 	// This is in Gutenberg now.
@@ -1825,13 +1957,14 @@ function gfo_add_edit_links($actions, $post) {
 // ------------------------------
 // Add User Default Editor Option
 // ------------------------------
+// 0.9.3: added missing translation wrappers
 function gfo_user_default_editor_field($user) {
 
 	$value = get_user_meta($user->ID, '_default_editor', true);
 	$options = array(
-		'' 			=> __('Use Site/Role Default'),
-		'classic'	=> __('Classic Editor (TinyMCE)'),
-		'block'		=> __('Block Editor (Gutenberg)'),
+		'' 			=> __('Use Site/Role Default','guten-free-options'),
+		'classic'	=> __('Classic Editor (TinyMCE)','guten-free-options'),
+		'block'		=> __('Block Editor (Gutenberg)','guten-free-options'),
 	);
 	$options = apply_filters('gfo_default_editor_options', $options);
 	if (!$value || !array_key_exists($value, $options)) {$value = '';}
@@ -1839,14 +1972,14 @@ function gfo_user_default_editor_field($user) {
 	// echo '<h3>'.__('Default Editor').'</h3>';
     echo '<table class="form-table">';
 	echo '<tr>';
-		echo '<th><label for="default_editor">'.__('Default Editor').'</label></th>';
+		echo '<th><label for="default_editor">'.__('Default Editor','guten-free-options').'</label></th>';
 			echo '<td>';
 				foreach ($options as $option => $label) {
 					echo '<input type="radio" name="default_editor" class="default_editor" value="'.$option.'"';
 						if ($value == $option) {echo ' checked';}
 					echo '> '.$label.'<br>';
 				}
-				echo '<span class="description">'.__('Sets your default editor for Writing.').'</span>';
+				echo '<span class="description">'.__('Sets your default editor for Writing.','guten-free-options').'</span>';
 			echo '</td>';
     	echo '</tr>';
     echo '</table>';
@@ -1859,9 +1992,9 @@ function gfo_user_default_editor_save($user_id) {
 
     if (!current_user_can('edit_user', $user_id)) {return;}
 	$options = array(
-		'' 			=> __('Use Site/Role Default'),
-		'classic'	=> __('Classic Editor (TinyMCE)'),
-		'block'		=> __('Block Editor (Gutenberg)'),
+		'' 			=> __('Use Site/Role Default','guten-free-options'),
+		'classic'	=> __('Classic Editor (TinyMCE)','guten-free-options'),
+		'block'		=> __('Block Editor (Gutenberg)','guten-free-options'),
 	);
 	$options = apply_filters('gfo_default_editor_options', $options);
 	$value = $_POST['default_editor'];
@@ -1870,7 +2003,7 @@ function gfo_user_default_editor_save($user_id) {
     if ($value == '') {delete_user_meta($user_id, '_default_editor');}
     elseif (array_key_exists($value, $options)) {update_user_meta($user_id, '_default_editor', $value);}
     else {
-    	// error invalid option (you can custom filter options array to fix)
+    	// error invalid option (user could custom filter options array to fix)
     }
 }
 
@@ -1899,13 +2032,17 @@ function gfo_editor_override_metabox_add() {
 	}
 
 	if (!isset($post_type) && isset($_REQUEST['post_type'])) {$post_type = $_REQUEST['post_type'];}
+	// 0.9.3: set default for post type to post (for post-new.php)
+	if (!isset($post_type)) {$post_type = 'post';}
 
-	// filter post type for metabox screens (plugin setting)
-	// $no_override = gfo_get_setting('no_override');
-	$no_override = apply_filters('gfo_no_override_post_types', false, $post_type);
-	if ($no_override && is_array($no_override)) {
-	 	if (isset($post_type) && in_array($post_type, $no_override)) {return;}
-	}
+	// 0.9.3: check post type locks
+	$lock_types = gfo_get_setting('lock_types'); $locked = false;
+	if (is_array($lock_types) && in_array($post_type, $lock_types)) {$locked = true;}
+
+	// filter post type for metabox screens
+	// 0.9.3: simplify to boolean true or false filter
+	$no_override = apply_filters('gfo_no_override_post_types', $locked, $post_type);
+	if ($no_override) {return;}
 
 	// finally, add the editor override meta box
 	add_meta_box('editor-override', __('Editor Override'), 'gfo_editor_override_metabox', $post_type, 'side', 'high');
@@ -1914,6 +2051,7 @@ function gfo_editor_override_metabox_add() {
 // -----------------------
 // Editor Override Metabox
 // -----------------------
+// 0.9.3: added missing translation wrappers
 function gfo_editor_override_metabox() {
 	global $post;
 	$override = get_post_meta($post->ID, '_editor_override', true);
@@ -1922,9 +2060,9 @@ function gfo_editor_override_metabox() {
 	// gfo_debug_log($debug);
 
 	$options = array(
-		'' 			=> __('Do Not Override'),
-		'classic'	=> __('Classic Editor (TinyMCE)'),
-		'block'		=> __('Block Editor (Gutenberg)'),
+		'' 			=> __('Do Not Override','guten-free-options'),
+		'classic'	=> __('Classic Editor (TinyMCE)','guten-free-options'),
+		'block'		=> __('Block Editor (Gutenberg)','guten-free-options'),
 	);
 	$options = apply_filters('gfo_editor_override_options', $options);
 	if (!$override || !array_key_exists($override, $options)) {$override = '';}
@@ -2002,9 +2140,9 @@ function gfo_editor_override_metabox_save($post_id) {
 	if (isset($_POST['editor_override'])) {
 		$override = $_POST['editor_override'];
 		$options = array(
-			'' 			=> __('Do Not Override'),
-			'classic'	=> __('Classic Editor (TinyMCE)'),
-			'block'		=> __('Block Editor (Gutenberg)'),
+			'' 			=> __('Do Not Override','guten-free-options'),
+			'classic'	=> __('Classic Editor (TinyMCE)','guten-free-options'),
+			'block'		=> __('Block Editor (Gutenberg)','guten-free-options'),
 		);
 		$options = apply_filters('gfo_editor_override_options', $options);
 
@@ -2032,7 +2170,8 @@ function gfo_editor_redirect() {
 	function gfo_editor_redirect_location($location) {
 		$location = remove_query_arg('editor', $location);
 		$location = remove_query_arg('classic-editor', $location);
-		echo $location; exit;
+		// 0.9.3: debug log location value and return redirect
+		gfo_debug_log('Redirect Post Location: '.$location);
 		return $location;
 	}
 	redirect_post($_REQUEST['post_ID']); exit;
@@ -2141,7 +2280,8 @@ function gfo_is_gutenberg_plugin_active() {
 		$sitewide_plugins = (array)get_site_option('active_sitewide_plugins');
 		if (array_key_exists('gutenberg/gutenberg.php', $sitewide_plugins)) {$active = true;}
 	}
-	$gutenfree['gutenberg_plugin'] = true;
+	// 0.9.3: fix to set active value
+	$gutenfree['gutenberg_plugin'] = $active;
 	return $active;
 }
 
@@ -2163,10 +2303,10 @@ function gfo_is_editor_admin_url($supported_filenames = array('post.php', 'post-
 // ---------------------------
 // Check for Block Editor Page
 // ---------------------------
-// 0.9.1: added check to help prevent Gutenberg plugin crashing without is_block_editor method
 function gfo_is_block_editor_page() {
 	global $current_screen;
 	$current_screen = get_current_screen();
+	// 0.9.1: added check to help prevent Gutenberg plugin crashing without is_block_editor method
 	if (method_exists($current_screen, 'is_block_editor') && $current_screen->is_block_editor()) {return true;}
 	elseif (gfo_is_gutenberg_plugin_active()) {
 		// do similar to is_gutenberg_page function here
@@ -2213,7 +2353,6 @@ function gfo_get_post_types() {
 		// TODO: check if/why next line is necessary? (I think it is not)
 		// if (!post_type_supports($post_type->name, 'custom-fields')) {unset($types[$key]);}
 	}
-	// print_r($types); // debug point
 	$types = apply_filters('gfo_get_post_types', $types);
 	return $types;
 }
@@ -2243,5 +2382,5 @@ function gfo_debug_log($logline) {
 	}
 }
 
-// Bonus Video: https://www.youtube.com/watch?v=SAUN4HPjtLY
+// Secret Bonus Video :-) https://www.youtube.com/watch?v=SAUN4HPjtLY
 
