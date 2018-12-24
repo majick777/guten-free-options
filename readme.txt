@@ -8,7 +8,7 @@ License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires PHP: 5.2.4
 Requires at least: 4.9.0
-Tested up to: 5.0.0
+Tested up to: 5.0.2
 Stable tag: trunk
 
 Gutenberg Free Options for your WordPressed Burger err I mean Editor
@@ -70,7 +70,19 @@ Multisite Usage
 
 == Upgrade Notice ==
 
+
 == Changelog ==
+
+= 0.9.4 =
+* use simplified plugins setup array and loading method
+* keep track of last filter that changed the default editor
+* add constant for settings and/or network settings locking
+* added post block checking for frontend Gutenberg loading
+* added reset settings confirmation message box
+* added settings updated/reset message via flag
+* added unset of non-default plugin settings keys on save
+* improved user object check to prevent errors
+* fix to filepath variable on forced Gutenberg loading
 
 = 0.9.3 = 
 * added post type locking options (prevents further filtering)
