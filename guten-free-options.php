@@ -4,7 +4,7 @@ Plugin Name: Guten Free Options
 Plugin URI: http://wpmedic.tech/guten-free-options/
 Author: Tony Hayes
 Description: Gutenberg Free Options for your WordPressed Burger err I mean Editor
-Version: 0.9.4
+Version: 0.9.5
 Author URI: http://wpmedic.tech
 GitHub Plugin URI: majick777/guten-free-options
 */
@@ -46,7 +46,7 @@ $settings = array(
 	'slug'			=> $slug,
 	'proslug'		=> $proslug,
 	'networkslug'	=> 'guten-free-network-options',
-	'version'		=> '0.9.4',
+	'version'		=> '0.9.5',
 	'title'			=> 'Guten Free Options',
 	'menutitle'		=> __('Guten Free','guten-free-options'),
 	'pagetitle'		=> __('Guten Free Options','guten-free-options'),
