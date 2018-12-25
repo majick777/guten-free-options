@@ -1130,7 +1130,9 @@ function gfo_readme_viewer() {
 // -----------------
 // Guten Free Cooker
 // -----------------
-add_action('plugins_loaded', 'gfo_cooker', 9);
+// 0.9.5: change init action to after_setup_theme (to access query and rewrite globals)
+// add_action('plugins_loaded', 'gfo_cooker', 9);
+add_action('after_setup_theme', 'gfo_cooker', 9);
 function gfo_cooker() {
 
 	global $gutenfree;
