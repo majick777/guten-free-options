@@ -73,6 +73,9 @@ Multisite Usage
 
 == Changelog ==
 
+= 0.9.5 =
+* hotfix loading action to access frontend wp_rewrite global
+
 = 0.9.4 =
 * use simplified plugins setup array and loading method
 * keep track of last filter that changed the default editor
