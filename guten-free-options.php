@@ -4,7 +4,7 @@ Plugin Name: Guten Free Options
 Plugin URI: https://wpmedic.tech/guten-free-options/
 Author: Tony Hayes
 Description: Gutenberg Free Options for your WordPressed Burger err I mean Editor
-Version: 0.9.6
+Version: 0.9.7
 Author URI: https://wpmedic.tech
 GitHub Plugin URI: majick777/guten-free-options
 */
@@ -383,7 +383,7 @@ function gfo_admin_bar_menu( $wp_admin_bar ) {
 // Post/Page Action Links
 // ----------------------
 // [unused] - via Classic Editor plugin
-function gfo_add_edit_links($actions, $post) {
+function gfo_add_edit_links( $actions, $post ) {
 
 	// This is in Gutenberg now.
 	if ( array_key_exists( 'classic', $actions ) ) {
@@ -460,16 +460,17 @@ function gfo_gutenberg_button() {
 	$button = apply_filters( 'gfo_gutenberg_button', $button );
 
 	// --- output the switch editor button on the editor page ---
+	// 0.9.7: add missing escaping to style/class outputs
 	echo '<div id="gutenberg-editor-button-wrapper">' . "\n";
 		echo '<a href="' . esc_url( $button['url'] ) . '">' . "\n";
 			echo '<div id="' . esc_attr( $button['id'] ) . '" class="' . esc_attr( $button['class'] ) . '" title="' . esc_attr( $button['title'] ) . '"';
 			if ( !empty( $button['styles'] ) ) {
-				echo ' style="' . $button['styles'] . '"';
+				echo ' style="' . esc_attr( $button['styles'] ) . '"';
 			}
 			echo '>' . "\n";
-				echo '<span class="'.$button['icon_class'].'"';
+				echo '<span class="' . esc_attr( $button['icon_class'] ) . '"';
 				if ( !empty( $button['icon_style'] ) ) {
-					echo ' style="' . $button['icon_style'] . '"';
+					echo ' style="' . esc_attr( $button['icon_style'] ) . '"';
 				}
 				echo '></span>' . "\n";
 			echo ' ' . esc_html( $button['anchor'] );
@@ -679,13 +680,14 @@ function gfo_widgets_page_message() {
 	global $gutenfree;
 	$disable_widget_blocks = false;
 	$widget_blocks = gfo_get_setting( 'widget_blocks', false );
-	
+
+	// 0.9.7: fix mismatched text domains
 	echo '<div class="message">' . "\n";
-		echo '<b>' . esc_html( __( 'Guten Free Options', 'bioship' ) ) . '</b>: ';
+		echo '<b>' . esc_html( __( 'Guten Free Options', 'guten-free-options' ) ) . '</b>: ';
 		if ( 'off' == $widget_blocks ) {
-			echo esc_html( __( 'The use of the Block Editor has been disabled for Widgets.', 'bioship' ) );
+			echo esc_html( __( 'The use of the Block Editor has been disabled for Widgets.', 'guten-free-options' ) );
 		} elseif ( ( '' == $widget_blocks ) || ( 'auto' == $widget_blocks ) ) {
-			echo esc_html( __( 'No Widgets contain blocks. Auto mode has disabled the Block Editor for Widgets.', 'bioship' ) );
+			echo esc_html( __( 'No Widgets contain blocks. Auto mode has disabled the Block Editor for Widgets.', 'guten-free-options' ) );
 		}
 		// 0.9.6: link to settings at options-general.php not admin.php
 		$settings_url = add_query_arg( 'page', $gutenfree['slug'], admin_url( 'options-general.php' ) );
@@ -1242,7 +1244,7 @@ function gfo_update_network_settings() {
 
 	// --- update network default editor setting ---
 	if ( isset( $_POST['gfo_network_default_editor'] ) ) {
-		$default_editor = sanitize_text_field( $_POST['gfo_network_default_editor'] );
+		$default_editor = sanitize_text_field( wp_unslash( $_POST['gfo_network_default_editor'] ) );
 		$valid = array( 'classic', 'block' );
 		if ( in_array( $default_editor, $valid ) ) {
 			update_site_option( 'network_default_editor', $default_editor );
@@ -1298,7 +1300,7 @@ function gfo_plugin_page_header( $network = false ) {
 	// 0.9.4: add update and reset message flags
 	if ( isset( $_GET['updated'] ) ) {
 		echo '<tr><td></td><td></td><td>' . "\n";
-		if ( 'yes' == sanitize_text_field( $_GET['updated'] ) ) {
+		if ( 'yes' == sanitize_text_field( wp_unslash( $_GET['updated'] ) ) ) {
 			$message = esc_html( $settings['title'] ) . ' ';
 			if ( $network ) {
 				$message .= esc_html( __( 'Network', 'guten-free-options' ) ) . ' ';
@@ -2232,7 +2234,7 @@ function gfo_will_gutenberg_load() {
 	// ...if one these filters is present
 	if ( has_filter( 'replace_editor', 'gutenberg_init' )
 	  || has_filter( 'load-post.php', 'gutenberg_intercept_edit_post' )
-	  || has_filter( 'load-post-new.php', 'gutenberg_intercept_post_new') ) {
+	  || has_filter( 'load-post-new.php', 'gutenberg_intercept_post_new' ) ) {
 	  	return 'plugin';
 	}
 
@@ -2257,7 +2259,7 @@ function gfo_check_gutenberg_load( $post_id = null ) {
 		// ...using url_to_postid as we are checking very early
 		if ( 'yes' == gfo_get_setting( 'check_blocks' ) ) {
 			$protocol = 'http';
-			if ( isset($_SERVER['HTTPS'] ) && ( 'off' !== $_SERVER['HTTPS'] ) ) {
+			if ( isset( $_SERVER['HTTPS'] ) && ( 'off' !== $_SERVER['HTTPS'] ) ) {
 				$protocol = 'https';
 			}
 			if ( 443 == $_SERVER['SERVER_PORT'] ) {
@@ -2341,7 +2343,7 @@ function gfo_get_post_type( $post_id ) {
 	if ( 0 === (int)$post_id ) {
 		// use querystring or set to post for post-new.php if not specified and on that page
 		if ( isset( $_GET['post_type'] ) ) {
-			$post_type = sanitize_text_field( $_GET['post_type'] );
+			$post_type = sanitize_text_field( wp_unslash( $_GET['post_type'] ) );
 		} elseif ( gfo_is_gutenberg_admin_url( array( 'post-new.php' ) ) ) {
 			$post_type = 'post';
 		}
@@ -2377,10 +2379,10 @@ function gfo_can_edit_post_type( $can_edit, $post_type ) {
 	// 0.9.3: ignore querystring overrides for locked post types
 	if ( !$locked ) {
 		if ( isset( $_GET['editor'] ) ) {
-			if ( 'block' == $_GET['editor'] ) {
+			if ( 'block' == sanitize_text_field( wp_unslash( $_GET['editor'] ) ) ) {
 				$gutenfree['last'] = 'querystring';
 				return true;
-			} elseif ( 'classic' == $_GET['editor'] ) {
+			} elseif ( 'classic' == sanitize_text_field( wp_unslash( $_GET['editor'] ) ) ) {
 				$gutenfree['last'] = 'querystring';
 				return false;
 			}
@@ -2624,10 +2626,10 @@ function gfo_can_edit_post( $can_edit, $post ) {
 
 	// --- check for editor querystrings (manual user override) ---
 	if ( isset( $_GET['editor'] ) ) {
-		if ( 'block' == $_GET['editor'] ) {
+		if ( 'block' == sanitize_text_field( wp_unslash( $_GET['editor'] ) ) ) {
 			$gutenfree['last'] = 'querystring';
 			return true;
-		} elseif ( 'classic' == $_GET['editor'] ) {
+		} elseif ( 'classic' == sanitize_text_field( wp_unslash( $_GET['editor'] ) ) ) {
 			$gutenfree['last'] = 'querystring';
 			return false;
 		}
@@ -2745,7 +2747,7 @@ function gfo_check_post_override( $can_edit, $post_id, $user ) {
 		// assume another editor is using this override
 		$can_edit = false;
 		$gutenfree['last'] = 'meta';
-		gfo_debug_log('Post ' . $post_id . ' Meta Other -> Classic' );
+		gfo_debug_log( 'Post ' . $post_id . ' Meta Other -> Classic' );
 	}
 
 	return $can_edit;
@@ -3104,7 +3106,8 @@ function gfo_editor_override_metabox() {
 	echo '<table id="editor-override-table"><tr>';
 
 		// 0.9.6: removed unused and undefined onchange variable
-		echo '<td><span class="editor-override-label">' . __( 'Editor','guten-free-options' ) . '</span></td>';
+		// 0.9.7: adding missing escaping on editor label
+		echo '<td><span class="editor-override-label">' . esc_html( __( 'Editor','guten-free-options' ) ) . '</span></td>';
 		echo '<td><select name="editor_override" id="editor_override">';
 		foreach ( $options as $option => $label ) {
 			echo '<option value="' . esc_attr( $option ) . '"';
@@ -3117,7 +3120,7 @@ function gfo_editor_override_metabox() {
 
 		// --- set a help icon with title for the setting ---
 		$posttypeobject = get_post_type_object( get_post_type($post->ID ) );
-		$title = __( 'Set the Editor for this', 'guten-free-options' ) . " " . $posttypeobject->labels->singular_name;
+		$title = __( 'Set the Editor for this', 'guten-free-options' ) . ' ' . $posttypeobject->labels->singular_name;
 		echo '<td><span id="editor-override-help" class="dashicons dashicons-editor-help" title="' . esc_attr( $title ) . '"></span></td>';
 
 	echo '</tr></table>';
@@ -3186,7 +3189,7 @@ function gfo_editor_override_metabox_save( $post_id ) {
 		return;
 	}
 	if ( isset( $_POST['editor_override'] ) ) {
-		$override = sanitize_text_field( $_POST['editor_override'] );
+		$override = sanitize_text_field( wp_unslash( $_POST['editor_override'] ) );
 		$options = array(
 			'' 			=> __( 'Do Not Override', 'guten-free-options' ),
 			'classic'	=> __( 'Classic Editor (TinyMCE)', 'guten-free-options' ),
@@ -3269,10 +3272,10 @@ function gfo_redirect_location( $location ) {
 		// 0.9.6: add sanitize_text_field to posted referer
 		$referer = sanitize_text_field( wp_unslash( $_POST['_wp_http_referer'] ) );
 		if ( false !== strpos( $referer, '&classic-editor' ) ) {
-			$location = add_query_arg('classic-editor', '', $location);
+			$location = add_query_arg( 'classic-editor', '', $location );
 		}
 		if ( false !== strpos( $referer, '&editor=classic' ) ) {
-			$location = add_query_arg('editor', 'classic', $location );
+			$location = add_query_arg( 'editor', 'classic', $location );
 		}
 		// not sure if will ever really be needed... but let us add the other way around just in case!
 		if ( false !== strpos( $referer, '&editor=block' ) ) {
@@ -3318,7 +3321,7 @@ function gfo_get_post_id_only( $slug ) {
 // --------------------------
 function gfo_get_post_name_only( $post_id ) {
 	global $wpdb;
-	$query = "SELECT post_name FROM ".$wpdb->prefix."posts WHERE ID = '%d'";
+	$query = "SELECT post_name FROM " . $wpdb->prefix . "posts WHERE ID = '%d'";
 	$query = $wpdb->prepare( $query, $post_id );
 	$result = $wpdb->get_var( $query );
 	return $result;
@@ -3334,7 +3337,7 @@ function gfo_get_post_content_only( $post_id = false ) {
 	}
 	global $wpdb;
 	// 0.9.6: remove unnecessary quotes around integer value
-	$query = "SELECT post_content FROM ".$wpdb->prefix."posts WHERE ID = %d";
+	$query = "SELECT post_content FROM " . $wpdb->prefix . "posts WHERE ID = %d";
 	// 0.9.2: fix to use post_id not id
 	$query = $wpdb->prepare( $query, $post_id );
 	$result = $wpdb->get_var( $query );
@@ -3351,7 +3354,7 @@ function gfo_is_gutenberg_plugin_active() {
 	if ( isset( $gutenfree['gutenberg_plugin'] ) && $gutenfree['gutenberg_plugin'] ) {
 		return true;
 	}
-	$active_plugins = (array)get_option( 'active_plugins' );
+	$active_plugins = (array) get_option( 'active_plugins' );
 	if ( in_array( 'gutenberg/gutenberg.php', $active_plugins ) ) {
 		$active = true;
 	}

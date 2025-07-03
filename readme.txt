@@ -9,7 +9,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires PHP: 5.2.4
 Requires at least: 4.9.0
 Tested up to: 6.8.1
-Stable tag: 0.9.6
+Stable tag: 0.9.7
 
 Gutenberg Free Options for your WordPressed Burger err I mean Editor.
 
@@ -74,6 +74,9 @@ Multisite Usage
 
 
 == Changelog ==
+
+= 0.9.7 =
+* Fixed: extra sanitization and escaping
 
 = 0.9.6 =
 * Updated: WordQuest Helper (1.8.3)
