@@ -9,13 +9,15 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Requires PHP: 5.2.4
 Requires at least: 4.9.0
 Tested up to: 6.8.1
-Stable tag: 0.9.6
+Stable tag: 0.9.7
 
-Gutenberg Free Options for your WordPressed Burger err I mean Editor
+Gutenberg Free Options for your WordPressed Burger err I mean Editor.
 
 == Description ==
 
 Want to use and/or not use the new Block Editor (Gutenberg) according to *your needs*?
+
+Guten Free Options provides this for your WordPressed Burger err I mean Editor.
 
 Guten Free Options allows you to smoothly transition your writing experience to WordPress 5+ by giving you full control over when a post should be edited with the Classic Editor or Block Editor... plus have a button to easily switch between them like other page builders.
 
@@ -72,6 +74,9 @@ Multisite Usage
 
 
 == Changelog ==
+
+= 0.9.7 =
+* Fixed: extra sanitization and escaping
 
 = 0.9.6 =
 * Updated: WordQuest Helper (1.8.3)
